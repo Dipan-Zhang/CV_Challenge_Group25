@@ -7,6 +7,3 @@ function gbim = filtered(im, x, y)
 
  gbim = im;
  gbim(x(1):x(2),y(1):y(2),:) = m;
-
-%  figure;  imshow(gbim);  title('after blurring');
-%  imwrite(gbim, 'after blurring.jpg');

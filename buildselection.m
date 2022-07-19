@@ -26,12 +26,10 @@ redf=immultiply(maskf,im(:,:,1));
 bluef=immultiply(maskf,im(:,:,3));
 greenf=immultiply(maskf,im(:,:,2));
 gf=cat(3,redf,greenf,bluef);%make the Foreground black 
-%imshow(gf);
 
 %create gaussian noise for the selected area
 gbim = filtered(g, x, y);
 gim = gf+gbim;
-
 
 %determine the smallest square(s) which surround the foreground(s)
 [i,j] = find(g(:,:,1)~=0);

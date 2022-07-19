@@ -1,15 +1,33 @@
 % read in sample image
-im = imread('sagrada_familia.png');
+addpath('datensatz\');
+addpath('icon\');
+im = imread('oil-painting.png');
 figure(1)
 imshow(im)
 sz = size(im);
 focal_length = max(sz(1),sz(2))/2/tan(pi/180*30/2);
    
+%% decide whether rotation is needed;
+prompt =['Do you need to rotate the picture to a suitable position?  \n' ...
+    ' If no please input 1，If yes, please input 2,'];
+input_RO = input(prompt); % number VPs 1 or 2)
+if input_RO == 1
+    flag_RO = 1;
+else
+    flag_RO = 2;
+end
+
+
+if flag_RO == 2 
+   figure(1)
+   imshow(im)
+   im = rotate(im); 
+end
 
 %% deal with multiple vanishing points
 prompt =['How many Vanishing Points do you have(1/2)?  \n' ...
     'Please type the number and then type Enter.'];
-input_VP = input(prompt); % how many VPs 1 or 2)
+input_VP = input(prompt); % number VPs 1 or 2)
 if input_VP == 1
     flag_VP = 1;
 else
@@ -120,9 +138,6 @@ end
         leftrx(1),leftry(1);
         rightrx(2),rightry(2)];
 
-% display the expended image
-% figure(2);
-% imshow(bim);
 
 % Draw the Vanishing Point and the 4 faces on the image
 figure(2);
@@ -145,10 +160,17 @@ ymax = max([leftry(4) rightry(3) floorry(3)]);
 destn = [xmin xmax xmax xmin; ymin ymin ymax ymax];
 spidery_mesh(vx,vy,size(im),fiveRec) %create spider mesh
 % Calculate 3D dimension
-% sim_trig_ratio = sqrt((xmax-xmin)*(ymax-ymin)/((backrx(2)-backrx(1))*(backry(3)-backry(2))));
 x1 = find_line_x(vx,vy,irx(1),iry(1),0);
 x2 = find_line_x(vx,vy,irx(2),iry(2),0);
-sim_trig_ratio = (x2-x1)/(irx(2)-irx(1));
+%%
+ratio1 = (fiveRec(9,1)-fiveRec(10,1))/(fiveRec(7,1)-fiveRec(8,1));
+ratio2 = (fiveRec(3,1)-fiveRec(4,1))/(fiveRec(1,1)-fiveRec(2,1));
+ratio3 = (fiveRec(11,2)-fiveRec(5,2))/(fiveRec(7,2)-fiveRec(1,2));
+ratio4 = (fiveRec(12,2)-fiveRec(6,2))/(fiveRec(8,2)-fiveRec(2,2));
+ratio = [ratio1,ratio2,ratio3,ratio4];
+sim_trig_ratio = max(ratio);
+
+%sim_trig_ratio = (x2-x1)/(irx(2)-irx(1));
 depth = focal_length*(sim_trig_ratio-1);
 
 %% transform of the image by homography matrix.
@@ -172,7 +194,6 @@ left = imtransform(bim, t_left, 'xData',[xmin xmax],'yData',[ymin ymax]);
 source_right = [rightrx; rightry];
 [h_right,t_right] = computeH(source_right, destn);
 right = imtransform(bim, t_right, 'xData',[xmin xmax],'yData',[ymin ymax]);
-% figure(7); imshow(right); axis image;
 
 %% deal with foreground(s)
 if flag_f ~= 0
@@ -180,7 +201,6 @@ if flag_f ~= 0
         gsource_floor = [floorrx; floorry];
         [gh_floor,gt_floor] = computeH(gsource_floor, destn);
         gfloor = imtransform(Ggbim{i}, gt_floor, 'xData',[xmin xmax],'yData',[ymin ymax]);
-       %  figure(4); imshow(gfloor); axis image;
         [rowfq, colfq] = find(gfloor(20:(end-20),20:(end-20),1) ==0);
         gyf = size(gfloor(:,:,1),1) - max(rowfq);
     
@@ -199,11 +219,59 @@ end
 %%
 %% display 3D sufraces
 
-ceil_planex = [0 0 0; depth depth depth];
+% ceil_planex = [0 0 0; depth depth depth];
+% ceil_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
+% ceil_planez = [ymax ymax ymax; ymax ymax ymax];
+% 
+% floor_planex = [depth depth depth; 0 0 0];
+% floor_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
+% floor_planez = [ymin ymin ymin; ymin ymin ymin];
+% 
+% back_planex = [depth depth depth; depth depth depth];
+% back_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
+% back_planez = [ymax ymax ymax; ymin ymin ymin];
+% 
+% left_planex = [0 depth/2 depth; 0 depth/2 depth];
+% left_planey = [xmin xmin xmin; xmin xmin xmin];
+% left_planez = [ymax ymax ymax; ymin ymin ymin];
+% 
+% right_planex = [depth depth/2 0; depth depth/2 0];
+% right_planey = [xmax xmax xmax; xmax xmax xmax];
+% right_planez = [ymax ymax ymax; ymin ymin ymin];
+[~,ind]=max(ratio);
+
+switch(ind)
+    case 1 % top
+        full_depth = abs(fiveRec(9,2) - fiveRec(7,2));
+        a=0;    %top
+        b=(1-abs(fiveRec(3,2) - fiveRec(1,2))/full_depth)*depth;    %floor
+        c=(1-abs(fiveRec(11,2) - fiveRec(7,2))/full_depth)*depth;   %left
+        d=(1-abs(fiveRec(12,2) - fiveRec(8,2))/full_depth)*depth;   %right
+    case 2 % floor
+        full_depth = abs(fiveRec(3,2) - fiveRec(1,2));
+        a=(1-abs(fiveRec(9,2) - fiveRec(7,2))/full_depth)*depth;
+        b=0;
+        c=(1-abs(fiveRec(5,2) - fiveRec(1,2))/full_depth)*depth;
+        d=(1-abs(fiveRec(6,2) - fiveRec(2,2))/full_depth)*depth;
+    case 3 % left
+        full_depth = abs(fiveRec(11,1) - fiveRec(7,1));
+        a=(1-abs(fiveRec(9,1) - fiveRec(7,1))/full_depth)*depth;
+        b=(1-abs(fiveRec(3,1) - fiveRec(1,1))/full_depth)*depth;
+        c=0;
+        d=(1-abs(fiveRec(12,1) - fiveRec(8,1))/full_depth)*depth;
+    case 4 % right
+        full_depth = abs(fiveRec(12,1) - fiveRec(8,1));
+        a=(1-abs(fiveRec(10,1) - fiveRec(8,1))/full_depth)*depth;
+        b=(1-abs(fiveRec(4,1) - fiveRec(2,1))/full_depth)*depth;
+        c=(1-abs(fiveRec(11,1) - fiveRec(7,1))/full_depth)*depth;
+        d=0;
+end
+
+ceil_planex = [a a a ; depth depth depth];
 ceil_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
 ceil_planez = [ymax ymax ymax; ymax ymax ymax];
 
-floor_planex = [depth depth depth; 0 0 0];
+floor_planex = [depth depth depth; b b b];
 floor_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
 floor_planez = [ymin ymin ymin; ymin ymin ymin];
 
@@ -211,14 +279,13 @@ back_planex = [depth depth depth; depth depth depth];
 back_planey = [xmin (xmax+xmin)/2 xmax; xmin (xmin+xmax)/2 xmax];
 back_planez = [ymax ymax ymax; ymin ymin ymin];
 
-left_planex = [0 depth/2 depth; 0 depth/2 depth];
+left_planex = [c (depth-c)/2 depth; c (depth-c)/2 depth];
 left_planey = [xmin xmin xmin; xmin xmin xmin];
 left_planez = [ymax ymax ymax; ymin ymin ymin];
 
-right_planex = [depth depth/2 0; depth depth/2 0];
+right_planex = [depth (depth-d)/2 d; depth (depth-d)/2 d];
 right_planey = [xmax xmax xmax; xmax xmax xmax];
 right_planez = [ymax ymax ymax; ymin ymin ymin];
-
 %% deal with foreground(s)
 if flag_f ~= 0 
     for i = 1:input_f
@@ -257,7 +324,6 @@ if flag_f ~= 0
         h = warp(Foreground_x{i},Foreground_y{i},Foreground_z{i},Foreground{i}); 
         set(gcf,'renderer','opengl'); 
         set(h,'FaceAlpha',  'texturemap', 'AlphaDataMapping', 'none', 'AlphaData',Alpha_foreground{i});
-    
     end
 
 end
